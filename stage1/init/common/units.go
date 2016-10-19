@@ -295,6 +295,13 @@ func (uw *UnitWriter) AppUnit(
 	app := ra.App
 	appName := ra.Name
 	imgName := uw.p.AppNameToImageName(appName)
+	imageManifest := uw.p.Images[appName.String()]
+
+	podAbsRoot, err := filepath.Abs(uw.p.Root)
+	if err != nil {
+		uw.err = err
+		return
+	}
 
 	if len(app.Exec) == 0 {
 		uw.err = fmt.Errorf(`image %q has an empty "exec" (try --exec=BINARY)`, imgName)
@@ -376,10 +383,9 @@ func (uw *UnitWriter) AppUnit(
 		opts = append(opts, unit.NewUnitOption("Service", "CapabilityBoundingSet", strings.Join(capabilitiesStr, " ")))
 	}
 
-	noNewPrivileges := getAppNoNewPrivileges(app.Isolators)
-
 	// Apply seccomp isolator, if any and not opt-ing out;
 	// see https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=
+	noNewPrivileges := getAppNoNewPrivileges(app.Isolators)
 	if !insecureOptions.DisableSeccomp {
 		var forceNoNewPrivileges bool
 
@@ -396,41 +402,25 @@ func (uw *UnitWriter) AppUnit(
 			noNewPrivileges = true
 		}
 	}
-
 	opts = append(opts, unit.NewUnitOption("Service", "NoNewPrivileges", strconv.FormatBool(noNewPrivileges)))
 
-	if ra.ReadOnlyRootFS {
-		opts = append(opts, unit.NewUnitOption("Service", "ReadOnlyDirectories", common.RelAppRootfsPath(appName)))
+	vols := make(map[types.ACName]types.Volume)
+	for _, v := range uw.p.Manifest.Volumes {
+		vols[v.Name] = v
 	}
-
-	absRoot, err := filepath.Abs(uw.p.Root) // Absolute path to the pod's rootfs.
-	if err != nil {
-		uw.err = err
-		return
-	}
-	appRootfs := common.AppRootfsPath(absRoot, appName)
-
-	rwDirs := []string{}
-	imageManifest := uw.p.Images[appName.String()]
 	mounts, err := GenerateMounts(ra, uw.p.Manifest.Volumes, ConvertedFromDocker(imageManifest))
 	if err != nil {
 		uw.err = err
 		return
 	}
 
-	for _, m := range mounts {
-		mntPath, err := EvaluateSymlinksInsideApp(appRootfs, m.Mount.Path)
+	if ra.ReadOnlyRootFS {
+		// Mark rootfs as RO, while retaining some specific mounts as RW
+		opts, err = generateWritablePaths(opts, podAbsRoot, ra, vols, mounts)
 		if err != nil {
 			uw.err = err
 			return
 		}
-
-		if !m.ReadOnly {
-			rwDirs = append(rwDirs, filepath.Join(common.RelAppRootfsPath(appName), mntPath))
-		}
-	}
-	if len(rwDirs) > 0 {
-		opts = appendOptionsList(opts, "Service", "ReadWriteDirectories", "", rwDirs)
 	}
 
 	if !insecureOptions.DisablePaths {
@@ -446,7 +436,7 @@ func (uw *UnitWriter) AppUnit(
 	// For kvm flavor, devices are VM-specific and restricting them is not strictly needed.
 	if !insecureOptions.DisablePaths && flavor != "kvm" {
 		opts = append(opts, unit.NewUnitOption("Service", "DevicePolicy", "closed"))
-		deviceAllows, err := generateDeviceAllows(common.Stage1RootfsPath(absRoot), appName, app.MountPoints, mounts, uidRange)
+		deviceAllows, err := generateDeviceAllows(common.Stage1RootfsPath(podAbsRoot), appName, app.MountPoints, mounts, uidRange)
 		if err != nil {
 			uw.err = err
 			return
