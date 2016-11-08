@@ -372,7 +372,7 @@ func (uw *UnitWriter) AppUnit(
 	}...)
 
 	if len(supplementaryGroups) > 0 {
-		opts = appendOptionsList(opts, "Service", "SupplementaryGroups", "", supplementaryGroups)
+		opts = appendOptionsList(opts, "Service", "SupplementaryGroups", "", supplementaryGroups...)
 	}
 
 	if supportsNotify(uw.p, appName.String()) {
@@ -404,10 +404,6 @@ func (uw *UnitWriter) AppUnit(
 	}
 	opts = append(opts, unit.NewUnitOption("Service", "NoNewPrivileges", strconv.FormatBool(noNewPrivileges)))
 
-	vols := make(map[types.ACName]types.Volume)
-	for _, v := range uw.p.Manifest.Volumes {
-		vols[v.Name] = v
-	}
 	mounts, err := GenerateMounts(ra, uw.p.Manifest.Volumes, ConvertedFromDocker(imageManifest))
 	if err != nil {
 		uw.err = err
@@ -415,11 +411,19 @@ func (uw *UnitWriter) AppUnit(
 	}
 
 	if ra.ReadOnlyRootFS {
-		// Mark rootfs as RO, while retaining some specific mounts as RW
-		opts, err = generateWritablePaths(opts, podAbsRoot, ra, vols, mounts)
-		if err != nil {
-			uw.err = err
-			return
+		for _, m := range mounts {
+			mntPath, err := EvaluateSymlinksInsideApp(podAbsRoot, m.Mount.Path)
+			if err != nil {
+				uw.err = err
+				return
+			}
+
+			if !m.ReadOnly {
+				rwDir := filepath.Join(common.RelAppRootfsPath(ra.Name), mntPath)
+				opts = appendOptionsList(opts, "Service", "ReadWriteDirectories", "", rwDir)
+			}
+
+			opts = appendOptionsList(opts, "Service", "ReadOnlyDirectories", "", common.RelAppRootfsPath(ra.Name))
 		}
 	}
 
@@ -629,7 +633,7 @@ func (uw *UnitWriter) AppReaperUnit(appName types.ACName, binPath string, opts .
 // an array of new properties, one entry at a time.
 // This is the preferred method to avoid hitting line length limits
 // in unit files. Target property must support multi-line entries.
-func appendOptionsList(opts []*unit.UnitOption, section string, property string, prefix string, vals []string) []*unit.UnitOption {
+func appendOptionsList(opts []*unit.UnitOption, section, property, prefix string, vals ...string) []*unit.UnitOption {
 	for _, v := range vals {
 		opts = append(opts, unit.NewUnitOption(section, property, fmt.Sprintf("%s%s", prefix, v)))
 	}

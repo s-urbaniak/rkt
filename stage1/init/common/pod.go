@@ -794,22 +794,3 @@ func protectKernelTunables(opts []*unit.UnitOption, appName types.ACName, system
 
 	return opts
 }
-
-// generateWritablePaths appends the list of options required to mark
-// a rootfs RO and specific paths as RW, according to runtime options.
-func generateWritablePaths(opts []*unit.UnitOption, podAbsRoot string, runApp *schema.RuntimeApp, vols map[types.ACName]types.Volume, mounts []mountWrapper) ([]*unit.UnitOption, error) {
-	appRootfs := common.AppRootfsPath(podAbsRoot, runApp.Name)
-	for _, m := range mounts {
-		mntPath, err := EvaluateSymlinksInsideApp(appRootfs, m.Mount.Path)
-		if err != nil {
-			return nil, err
-		}
-		if !m.ReadOnly {
-			rwDir := filepath.Join(common.RelAppRootfsPath(runApp.Name), mntPath)
-			opts = append(opts, unit.NewUnitOption("Service", "ReadWriteDirectories", rwDir))
-		}
-	}
-	opts = append(opts, unit.NewUnitOption("Service", "ReadOnlyDirectories", common.RelAppRootfsPath(runApp.Name)))
-
-	return opts, nil
-}
