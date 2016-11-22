@@ -86,7 +86,7 @@ func testFromFile(t *testing.T, arg string, image string) {
 // TestFetch tests that 'rkt fetch/run/prepare' for any type (image name string
 // or URL) except file:// URL will work with the default, store only
 // (--store-only) and remote only (--no-store) behaviors.
-func TestFetch(t *testing.T) {
+func TestFetchOnly(t *testing.T) {
 	image := "rkt-inspect-implicit-fetch.aci"
 	imagePath := patchTestACI(image, "--exec=/inspect")
 
@@ -168,14 +168,10 @@ func testFetchDefault(t *testing.T, arg string, image string, imageArgs string, 
 	cmd := fmt.Sprintf("%s %s %s %s", ctx.Cmd(), arg, image, imageArgs)
 
 	// 1. Run cmd with the image not available in the store, should get $remoteFetchMsg.
-	child := spawnOrFail(t, cmd)
-	err := expectCommon(child, remoteFetchMsg, 5*time.Minute)
-	if exitErr := checkExitStatus(child); exitErr != nil {
+	exitErr := runRktAndCheckRegexOutput(t, cmd, remoteFetchMsg)
+	if exitErr != nil {
 		t.Logf("%v", exitErr)
 		t.Skip("remote fetching failed, probably a network failure. Skipping...")
-	}
-	if err != nil {
-		t.Fatalf("%q should be found: %v", remoteFetchMsg, err)
 	}
 
 	// 2. Run cmd with the image available in the store, should get $storeMsg.
