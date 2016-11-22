@@ -35,10 +35,10 @@ import (
 	taas "github.com/coreos/rkt/tests/testutils/aci-server"
 )
 
-// TestFetchFromFile tests that 'rkt fetch/run/prepare' for a file will always
+// TestFromFile tests that 'rkt fetch/run/prepare' for a file will always
 // fetch the file regardless of the specified behavior (default, store only,
 // remote only).
-func TestFetchFromFile(t *testing.T) {
+func TestFromFile(t *testing.T) {
 	image := "rkt-inspect-implicit-fetch.aci"
 	imagePath := patchTestACI(image, "--exec=/inspect")
 
@@ -60,11 +60,11 @@ func TestFetchFromFile(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		testFetchFromFile(t, tt.args, tt.image)
+		testFromFile(t, tt.args, tt.image)
 	}
 }
 
-func testFetchFromFile(t *testing.T, arg string, image string) {
+func testFromFile(t *testing.T, arg string, image string) {
 	fetchFromFileMsg := fmt.Sprintf("using image from file %s", image)
 
 	ctx := testutils.NewRktRunCtx()
@@ -115,6 +115,13 @@ func TestFetch(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		// using fmt to not use buffering
+		fmt.Fprintf(
+			os.Stdout,
+			"tt.args %q tt.image %q tt.imageArgs %q tt.finalURL %q\n",
+			tt.args, tt.image, tt.imageArgs, tt.finalURL,
+		)
+
 		testFetchDefault(t, tt.args, tt.image, tt.imageArgs, tt.finalURL)
 		testFetchStoreOnly(t, tt.args, tt.image, tt.imageArgs, tt.finalURL)
 		testFetchNoStore(t, tt.args, tt.image, tt.imageArgs, tt.finalURL)
@@ -162,7 +169,7 @@ func testFetchDefault(t *testing.T, arg string, image string, imageArgs string, 
 
 	// 1. Run cmd with the image not available in the store, should get $remoteFetchMsg.
 	child := spawnOrFail(t, cmd)
-	err := expectWithOutput(child, remoteFetchMsg)
+	err := expectCommon(child, remoteFetchMsg, 5*time.Minute)
 	if exitErr := checkExitStatus(child); exitErr != nil {
 		t.Logf("%v", exitErr)
 		t.Skip("remote fetching failed, probably a network failure. Skipping...")
