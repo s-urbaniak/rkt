@@ -116,6 +116,10 @@ func patchTestACI(newFileName string, args ...string) string {
 
 func spawnOrFail(t *testing.T, cmd string) *gexpect.ExpectSubprocess {
 	t.Logf("Running command: %v", cmd)
+
+	// this is set to an unnnecessary long value in Fedora
+	_ = os.Unsetenv("LS_COLORS")
+
 	child, err := gexpect.Spawn(cmd)
 	if err != nil {
 		t.Fatalf("Cannot exec rkt: %v", err)
