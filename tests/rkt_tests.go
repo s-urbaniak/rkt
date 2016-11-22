@@ -406,9 +406,12 @@ func runRktAndCheckRegexOutput(t *testing.T, rktCmd, match string) error {
 		rktCmd,
 	)
 
-	out, err := cmd.CombinedOutput()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err = cmd.Run()
 
-	result := re.MatchString(string(out))
+	result := re.MatchString(stdout.String() + "\n" + stderr.String())
 	if !result {
 		t.Fatalf("regex not found")
 	}

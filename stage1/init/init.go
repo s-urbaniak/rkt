@@ -66,6 +66,8 @@ const (
 	localtimePath = "/etc/localtime"
 )
 
+func noplog(string, ...interface{}) {}
+
 // mirrorLocalZoneInfo tries to reproduce the /etc/localtime target in stage1/ to satisfy systemd-nspawn
 func mirrorLocalZoneInfo(root string) {
 	zif, err := os.Readlink(localtimePath)
@@ -619,7 +621,7 @@ func stage1() int {
 	if err != nil {
 		log.FatalE("cannot get environment", err)
 	}
-	diag.Printf("args %q", args)
+	noplog("args %q", args)
 	diag.Printf("env %q", env)
 
 	// create a separate mount namespace so the cgroup filesystems
