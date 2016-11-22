@@ -66,6 +66,8 @@ const (
 	localtimePath = "/etc/localtime"
 )
 
+func noplog(string, ...interface{}) {}
+
 // mirrorLocalZoneInfo tries to reproduce the /etc/localtime target in stage1/ to satisfy systemd-nspawn
 func mirrorLocalZoneInfo(root string) {
 	zif, err := os.Readlink(localtimePath)
@@ -576,7 +578,7 @@ func stage1() int {
 	mnt := fs.NewLoggingMounter(
 		fs.MounterFunc(syscall.Mount),
 		fs.UnmounterFunc(syscall.Unmount),
-		diag.Printf,
+		noplog,
 	)
 
 	if dnsConfMode.Pairs["resolv"] == "host" {
@@ -613,14 +615,14 @@ func stage1() int {
 		// kvm doesn't register with systemd right now, see #2664.
 		canMachinedRegister = machinedRegister()
 	}
-	diag.Printf("canMachinedRegister %t", canMachinedRegister)
+	noplog("canMachinedRegister %t", canMachinedRegister)
 
 	args, env, err := getArgsEnv(p, flavor, canMachinedRegister, debug, n, insecureOptions)
 	if err != nil {
 		log.FatalE("cannot get environment", err)
 	}
-	diag.Printf("args %q", args)
-	diag.Printf("env %q", env)
+	noplog("args %q", args)
+	noplog("env %q", env)
 
 	// create a separate mount namespace so the cgroup filesystems
 	// are unmounted when exiting the pod
@@ -644,7 +646,7 @@ func stage1() int {
 	if err != nil {
 		log.FatalE("error determining cgroup version", err)
 	}
-	diag.Printf("unifiedCgroup %t", unifiedCgroup)
+	noplog("unifiedCgroup %t", unifiedCgroup)
 
 	s1Root := common.Stage1RootfsPath(p.Root)
 	machineID := stage1initcommon.GetMachineID(p)
@@ -653,7 +655,7 @@ func stage1() int {
 	if err != nil {
 		log.FatalE("error getting container subcgroup", err)
 	}
-	diag.Printf("subcgroup %q", subcgroup)
+	noplog("subcgroup %q", subcgroup)
 
 	if err := ioutil.WriteFile(filepath.Join(p.Root, "subcgroup"),
 		[]byte(fmt.Sprintf("%s", subcgroup)), 0644); err != nil {
@@ -665,7 +667,7 @@ func stage1() int {
 		if err != nil {
 			log.FatalE("error getting v1 cgroups", err)
 		}
-		diag.Printf("enabledCgroups %q", enabledCgroups)
+		noplog("enabledCgroups %q", enabledCgroups)
 
 		if err := mountHostV1Cgroups(mnt, enabledCgroups); err != nil {
 			log.FatalE("couldn't mount the host v1 cgroups", err)
@@ -681,7 +683,7 @@ func stage1() int {
 		for _, app := range p.Manifest.Apps {
 			serviceNames = append(serviceNames, stage1initcommon.ServiceUnitName(app.Name))
 		}
-		diag.Printf("serviceNames %q", serviceNames)
+		noplog("serviceNames %q", serviceNames)
 
 		if err := mountContainerV1Cgroups(mnt, s1Root, enabledCgroups, subcgroup, serviceNames, insecureOptions); err != nil {
 			log.FatalE("couldn't mount the container v1 cgroups", err)
