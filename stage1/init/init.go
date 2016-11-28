@@ -622,6 +622,7 @@ func stage1() int {
 		log.FatalE("cannot get environment", err)
 	}
 	noplog("args %q", args)
+	diag.Printf("test %q", RandStringRunes(4096))
 	diag.Printf("env %q", env)
 
 	// create a separate mount namespace so the cgroup filesystems
