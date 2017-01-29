@@ -38,11 +38,10 @@ func (a AppIO) String() string {
 }
 
 const (
-	AppIOInteractive AppIO = "interactive" // interactive I/O (parent terminal)
-	AppIOLog         AppIO = "log"         // log-only I/O
-	AppIONull        AppIO = "null"        // null I/O
-	AppIOStream      AppIO = "stream"      // attachable I/O
-	AppIOTTY         AppIO = "tty"         // I/O over TTY
+	AppIOLog    AppIO = "log"    // log-only I/O
+	AppIONull   AppIO = "null"   // null I/O
+	AppIOStream AppIO = "stream" // attachable I/O
+	AppIOTTY    AppIO = "tty"    // I/O over TTY
 )
 
 type App struct {
